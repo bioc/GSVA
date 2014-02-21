@@ -48,9 +48,12 @@ setMethod("gsva", signature(expr="ExpressionSet", gset.idx.list="list", annotati
   eSco <- GSVA:::.gsva(exprs(expr), mapped.gset.idx.list, method, rnaseq, abs.ranking,
                        no.bootstraps, bootstrap.percent, parallel.sz, parallel.type,
                        mx.diff, tau, kernel, verbose)
+
+  if (method != "gsva")
+    eSco <- list(es.obs=eSco, bootstrap=NULL, p.vals.sign=NULL)
+
   eScoEset <- new("ExpressionSet", exprs=eSco$es.obs, phenoData=phenoData(expr),
                   experimentData=experimentData(expr), annotation="")
-
 	return(list(es.obs=eScoEset,
 				      bootstrap=eSco$bootstrap,
               p.vals.sign=eSco$p.vals.sign))
@@ -106,6 +109,10 @@ setMethod("gsva", signature(expr="ExpressionSet", gset.idx.list="GeneSetCollecti
   eSco <- GSVA:::.gsva(exprs(expr), mapped.gset.idx.list, method, rnaseq, abs.ranking,
                        no.bootstraps, bootstrap.percent, parallel.sz, parallel.type,
                        mx.diff, tau, kernel, verbose)
+
+  if (method != "gsva")
+    eSco <- list(es.obs=eSco, bootstrap=NULL, p.vals.sign=NULL)
+
   eScoEset <- new("ExpressionSet", exprs=eSco$es.obs, phenoData=phenoData(expr),
                   experimentData=experimentData(expr), annotation="")
 
