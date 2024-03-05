@@ -460,6 +460,11 @@ setMethod("wrapData", signature("matrix", "matrix"),
               return(dataMatrix)
           })
 
+setMethod("wrapData", signature("matrix", "dgCMatrix"),
+          function(dataMatrix, container) {
+              return(dataMatrix)
+          })
+
 setMethod("wrapData", signature("matrix", "ExpressionSet"),
           function(dataMatrix, container) {
               rval <- new("ExpressionSet", exprs=dataMatrix,

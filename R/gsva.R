@@ -1017,10 +1017,6 @@ ssgsea <- function(X, geneSets, alpha=0.25, parallel.sz,
   rownames(es) <- names(geneSets)
   colnames(es) <- colnames(X)
   
-  if(is(X, "dgCMatrix")){
-    es <- as(as(as(es, "dMatrix"), "generalMatrix"), "CsparseMatrix")
-  }
-  
   es
 }
 
@@ -1073,9 +1069,6 @@ plage <- function(X, geneSets, parallel.sz, verbose=TRUE,
                    BPPARAM=BPPARAM)
     
     es <- do.call(rbind, es)
-    
-    es <- as(as(as(es, "dMatrix"), "generalMatrix"), "CsparseMatrix")
-    
   } else {
     
     Z <- t(scale(t(X)))
