@@ -148,3 +148,9 @@ setMethod("gsvaAssayNames", signature("SummarizedExperiment"),
               a <- assayNames(object)
               return(if(.isCharNonEmpty(a)) a else NA_character_)
           })
+
+setMethod("gsvaAssayNames", signature("SingleCellExperiment"),
+          function(object) {
+              a <- assayNames(object)
+              return(if(.isCharNonEmpty(a)) a else NA_character_)
+          })
