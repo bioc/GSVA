@@ -14,8 +14,7 @@
 #' [`dgCMatrix-class`],
 #' [`ExpressionSet-class`],
 #' [`SummarizedExperiment-class`],
-#' [`SingleCellExperiment-class`],
-#' [`HDF5Array`]
+#' [`SingleCellExperiment-class`]
 #'
 #' @aliases GsvaExprData
 #' @name GsvaExprData-class
