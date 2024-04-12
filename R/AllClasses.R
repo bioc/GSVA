@@ -6,7 +6,7 @@
 #' Virtual superclass of expression data classes supported by `GSVA`.
 #'
 #' `GSVA` supports expression data matrices in a growing number of containers
-#' and representations.  This class union allows to store any of these in a slot
+#' and representations. This class union allows to store any of these in a slot
 #' of another class as well as defining common methods for all of them.
 #'
 #' @seealso
@@ -17,6 +17,7 @@
 #' [`SingleCellExperiment-class`],
 #' [`HDF5Array`]
 #'
+#' @aliases GsvaExprData
 #' @name GsvaExprData-class
 #' @rdname GsvaExprData-class
 #' @exportClass GsvaExprData
