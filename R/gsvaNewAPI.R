@@ -255,19 +255,20 @@ setMethod("gsva", signature(param="ssgseaParam"),
                   cli_alert_info(sprintf("Calculating  ssGSEA scores for %d gene sets",
                                          length(filteredMappedGeneSets)))
 
-              ssgseaScores <- ssgsea(X=filteredDataMatrix,
-                                     geneSets=filteredMappedGeneSets,
-                                     alpha=get_alpha(param), 
-                                     normalization=get_normalize(param),
-                                     any_na=anyNA(param),
-                                     na_use=get_NAuse(param),
-                                     minSize=get_minSize(param),
-                                     BPPARAM=BPPARAM)
+              ssgsea_sco <- ssgsea(X=filteredDataMatrix,
+                                   geneSets=filteredMappedGeneSets,
+                                   alpha=get_alpha(param), 
+                                   normalization=get_normalize(param),
+                                   any_na=anyNA(param),
+                                   na_use=get_NAuse(param),
+                                   minSize=get_minSize(param),
+                                   verbose=verbose,
+                                   BPPARAM=BPPARAM)
 
               gs <- .geneSetsIndices2Names(
                   indices=filteredMappedGeneSets,
                   names=rownames(filteredDataMatrix))
-              rval <- wrapData(get_exprData(param), ssgseaScores, gs)
+              rval <- wrapData(get_exprData(param), ssgsea_sco, gs)
               
               if (verbose)
                   cli_alert_success("Calculations finished")

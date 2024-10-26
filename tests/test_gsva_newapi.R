@@ -1,8 +1,8 @@
 
-## 2023-11-10  axel: simple test script for method GSVA, new API
+## 2024-10-25 regression test script for method GSVA
 
-library(GSVAdata)
-library(GSVA)
+suppressPackageStartupMessages(library(GSVAdata))
+suppressPackageStartupMessages(library(GSVA))
 
 data(c2BroadSets)
 data(commonPickrellHuang)
@@ -11,7 +11,7 @@ data(gbm_VerhaakEtAl)
 data(brainTxDbSets)
 data(leukemia)
 
-set.seed(2023-11-09)
+set.seed(2024-10-25)
 options(width=1024)
 nRowsToPrint <- 25
 
