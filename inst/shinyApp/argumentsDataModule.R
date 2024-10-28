@@ -46,8 +46,8 @@ argumentsDataServer <- function(id){
             toggleElement("ssgseaNorm", condition = input$method %in% "ssgsea")
             toggleElement("mxDiff", condition = input$method %in% "gsva")
             toggleElement("tau", condition = input$method %in% c("gsva", "ssgsea"))
-            toggleElement("checkNA", condition = input$method %in% "ssgsea")
-            toggleElement("use", condition = input$method %in% "ssgsea")
+            toggleElement("checkNA", condition = input$method %in% c("gsva", "ssgsea"))
+            toggleElement("use", condition = input$method %in% c("gsva", "ssgsea"))
             
             if(input$method == "gsva"){
                 updateNumericInput(inputId = "tau", value = 1)
