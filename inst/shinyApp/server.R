@@ -88,7 +88,9 @@ function(input, output, session) {
                           kcdf=isolate(argInp[["kcdf"]]()),
                           tau=isolate(argInp[["selectedTau"]]()),
                           maxDiff=isolate(argInp[["mxDiff"]]()),
-                          absRanking=isolate(argInp[["absRanking"]]())))
+                          absRanking=isolate(argInp[["absRanking"]]()),
+                          checkNA=isolate(argInp[["checkNA"]]()),
+                          use=isolate(argInp[["use"]]())))
       result <- gsva(param=param, verbose=TRUE)
       sink()
       ## when gsva() ends, we reset the console text file to empty
