@@ -606,7 +606,7 @@ ecdfvals_dense_to_dense_nas_R(SEXP XR, SEXP verboseR) {
     /* consider adding LONG_VECTOR_SUPPORT */
     tab = R_Calloc(nuniqv, int); /* assuming zeroes are set */
     for (int j=0; j < nc; j++)
-      if (!ISNA(mt[j]) && mt[j] > 0 && mt[j] <= nuniqv)
+      if (mt[j] != NA_INTEGER && mt[j] > 0 && mt[j] <= nuniqv)
         tab[mt[j] - 1]++;
 
     /* cumulative sum to calculate ecdf values */

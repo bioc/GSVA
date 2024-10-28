@@ -343,6 +343,7 @@ order_rankstat_sparse_to_sparse_R(SEXP XCspR, SEXP jR) { /* column in jR is 1-ba
   return(ansR);
 }
 
+
 /* from https://github.com/cran/curl/blob/master/src/interrupt.c */
 /* Check for interrupt without long jumping */
 void

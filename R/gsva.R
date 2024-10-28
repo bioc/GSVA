@@ -831,23 +831,63 @@ setMethod("gsvaEnrichment", signature(param="gsvaRanksParam"),
       stepCDFinGeneSet <- numeric(n)
       stepCDFinGeneSet[gSetRnk] <- symRnkStat[gSetIdx]^tau
     }
-    stepCDFinGeneSet <- cumsum(stepCDFinGeneSet)
-    stepCDFinGeneSet <- stepCDFinGeneSet / stepCDFinGeneSet[n]
 
+    stepCDFinGeneSet <- cumsum(stepCDFinGeneSet)
     stepCDFoutGeneSet <- rep(1L, n)
     stepCDFoutGeneSet[gSetRnk] <- 0L
     stepCDFoutGeneSet <- cumsum(stepCDFoutGeneSet)
-    stepCDFoutGeneSet <- stepCDFoutGeneSet / stepCDFoutGeneSet[n]
 
-    walkStat <- stepCDFinGeneSet - stepCDFoutGeneSet
+    walkStat <- rep(NA_real_, n)
+    if (stepCDFinGeneSet[n] > 0 && stepCDFoutGeneSet[n] > 0) {
+        stepCDFinGeneSet <- stepCDFinGeneSet / stepCDFinGeneSet[n]
+        stepCDFoutGeneSet <- stepCDFoutGeneSet / stepCDFoutGeneSet[n]
+
+        walkStat <- stepCDFinGeneSet - stepCDFoutGeneSet
+    }
 
     walkStat
+}
+
+.gsva_score_genesets_Rimp <- function(geneSetsIdx, decOrdStat, symRnkStat,
+                                      maxDiff, absRanking, tau, any_na, na_use,
+                                      minSize) {
+   md <- lapply(geneSetsIdx, function(gSetIdx, decOrdStat, symRnkStat) {
+             maxDev <- c(NA_real_, NA_real_)
+             if (any_na) {
+                 walkStat <- .gsvaRndWalk_nas(gSetIdx, decOrdStat, symRnkStat,
+                                              tau, na_use, minSize)
+                 if (any(!is.na(walkStat))) {
+                     if (na_use == "na.rm")
+                         maxDev <- c(max(c(0, max(walkStat, na.rm=TRUE))),
+                                     min(c(0, min(walkStat, na.rm=TRUE))))
+                     else
+                         maxDev <- c(max(c(0, max(walkStat))),
+                                     min(c(0, min(walkStat))))
+                 }
+             } else {
+                 walkStat <- .gsvaRndWalk(gSetIdx, decOrdStat, symRnkStat, tau)
+                 maxDev <- c(max(c(0, max(walkStat))), min(c(0, min(walkStat))))
+             }
+             maxDev
+         }, decOrdStat, symRnkStat)
+   md <- do.call("rbind", md)
+   if (maxDiff && absRanking)
+       md[, 2] <- -1 * md[, 2]
+   sco <- rowSums(md)
+   if (!maxDiff) {
+       if (any_na) {
+         mask <- is.na(sco)
+         sco[!mask] <- md[cbind(1:sum(!mask), ifelse(sco[!mask] > 0, 1, 2))]
+       } else
+         sco <- md[cbind(1:length(sco), ifelse(sco > 0, 1, 2))]
+   }
+   sco
 }
 
 ## here gSetIdx, decOrderStat and symRnkStat contain the positions with respect
 ## to the original order of genes in the data
 .gsvaRndWalk_nas <- function(gSetIdx, decOrderStat, symRnkStat, tau, na_use,
-                             minSize=1, wna_env=new.env()) {
+                             minSize=1L, wna_env=new.env()) {
     n <- length(decOrderStat)
     gSetRnk <- decOrderStat[gSetIdx]
 
@@ -873,15 +913,18 @@ setMethod("gsvaEnrichment", signature(param="gsvaRanksParam"),
           stepCDFinGeneSet <- numeric(n)
           stepCDFinGeneSet[gSetRnk] <- symRnkStat[gSetIdx]^tau
         }
-        stepCDFinGeneSet <- cumsum(stepCDFinGeneSet)
-        stepCDFinGeneSet <- stepCDFinGeneSet / stepCDFinGeneSet[n]
 
+        stepCDFinGeneSet <- cumsum(stepCDFinGeneSet)
         stepCDFoutGeneSet <- rep(1L, n)
         stepCDFoutGeneSet[gSetRnk] <- 0L
         stepCDFoutGeneSet <- cumsum(stepCDFoutGeneSet)
-        stepCDFoutGeneSet <- stepCDFoutGeneSet / stepCDFoutGeneSet[n]
 
-        walkStat <- stepCDFinGeneSet - stepCDFoutGeneSet
+        if (stepCDFinGeneSet[n] > 0 && stepCDFinGeneSet[n] > 0) {
+            stepCDFinGeneSet <- stepCDFinGeneSet / stepCDFinGeneSet[n]
+            stepCDFoutGeneSet <- stepCDFoutGeneSet / stepCDFoutGeneSet[n]
+
+            walkStat <- stepCDFinGeneSet - stepCDFoutGeneSet
+        }
     } else if (!get("w", envir=wna_env)) ## warn only once. it can only happen
         assign("w", TRUE, envir=wna_env) ## with na_use="na.rm"
 
@@ -892,7 +935,7 @@ setMethod("gsvaEnrichment", signature(param="gsvaRanksParam"),
 .ranks2stats <- function(r, sparse) {
     mask <- r == 0
     p <- length(r)
-    r_dense <- r
+    r_dense <- as.integer(r)          ## assume ranks are integer
 
     if (any(mask)) {                  ## sparse ranks into dense ranks
         nzs <- sum(mask)
@@ -900,7 +943,7 @@ setMethod("gsvaEnrichment", signature(param="gsvaRanksParam"),
         r_dense[mask] <- seq.int(nzs)          ## zeros get increasing ranks
     }
 
-    dos <- p - r_dense + 1            ## dense ranks into decreasing order stats
+    dos <- p - r_dense + 1L           ## dense ranks into decreasing order stats
     srs <- numeric(p)
 
     if (any(mask) && sparse) {
@@ -924,7 +967,7 @@ setMethod("gsvaEnrichment", signature(param="gsvaRanksParam"),
     n_nas <- sum(na_mask)
     mask <- !na_mask & r == 0
     p <- length(r)
-    r_dense <- r
+    r_dense <- as.integer(r)          ## assume ranks are integer
 
     if (any(mask)) {                  ## sparse ranks into dense ranks
         nzs <- sum(mask)
@@ -932,12 +975,12 @@ setMethod("gsvaEnrichment", signature(param="gsvaRanksParam"),
         r_dense[mask] <- seq.int(nzs)          ## zeros get increasing ranks
     }
 
-    dos <- p - n_nas - r_dense + 1      ## dense ranks into decreasing order stats
+    dos <- p - n_nas - r_dense + 1L   ## dense ranks into decreasing order stats
     srs <- numeric(p)
 
     if (any(mask) && sparse) {
-        r[!mask] <- r[!mask] + 1      ## shift ranks of nonzero values by one
-        r[mask] <- 1                  ## all zeros get the same first rank
+        r[!mask] <- r[!mask] + 1L     ## shift ranks of nonzero values by one
+        r[mask] <- 1L                 ## all zeros get the same first rank
         srs <- abs(max(r, na.rm=TRUE)/2 - r)
     } else
         srs <- abs((p - n_nas)/2 - r_dense)
@@ -970,45 +1013,10 @@ setMethod("gsvaEnrichment", signature(param="gsvaRanksParam"),
                 rnkstats <- .ranks2stats_nas(R[, j], sparse)
             else
                 rnkstats <- .ranks2stats(R[, j], sparse)
-            sco <- NA_real_
-            if (any_na && any(is.na(rnkstats$dos))) {
-                md <- lapply(geneSetsIdx, function(gSetIdx, decOrdStat,
-                                                   symRnkStat, na_use) {
-                  walkStat <- .gsvaRndWalk_nas(gSetIdx, decOrdStat, symRnkStat,
-                                               tau, na_use, minSize, wna_env)
-                  maxDev <- c(NA_real_, NA_real_)
-                  if (any(!is.na(walkStat))) {
-                      if (na_use == "na.rm")
-                          maxDev <- c(max(c(0, max(walkStat, na.rm=TRUE))),
-                                      min(c(0, min(walkStat, na.rm=TRUE))))
-                      else
-                          maxDev <- c(max(c(0, max(walkStat))),
-                                      min(c(0, min(walkStat))))
-                  }
-                  maxDev
-                }, rnkstats$dos, rnkstats$srs, na_use)
-                md <- do.call("rbind", md)
-                if (maxDiff && absRanking)
-                    md[, 2] <- -1 * md[, 2]
-                sco <- rowSums(md)
-                if (!maxDiff) {
-                    mask <- is.na(sco)
-                    sco[!mask] <- md[cbind(1:sum(!mask), ifelse(sco[!mask] > 0,
-                                                                1, 2))]
-                }
-            } else {
-                md <- lapply(geneSetsIdx, function(gSetIdx, decOrdStat, symRnkStat) {
-                  walkStat <- .gsvaRndWalk(gSetIdx, decOrdStat, symRnkStat, tau)
-                  maxDev <- c(max(c(0, max(walkStat))), min(c(0, min(walkStat))))
-                  maxDev
-                }, rnkstats$dos, rnkstats$srs)
-                md <- do.call("rbind", md)
-                if (maxDiff && absRanking)
-                    md[, 2] <- -1 * md[, 2]
-                sco <- rowSums(md)
-                if (!maxDiff)
-                    sco <- md[cbind(1:length(sco), ifelse(sco > 0, 1, 2))]
-            }
+            sco <- .gsva_score_genesets(geneSetsIdx, decOrdStat=rnkstats$dos,
+                                        symRnkStat=rnkstats$srs, maxDiff,
+                                        absRanking, tau, any_na, na_use, minSize,
+                                        wna_env)
             sco
         }, R=R, BPPARAM=BPPARAM)
         es
@@ -1017,53 +1025,17 @@ setMethod("gsvaEnrichment", signature(param="gsvaRanksParam"),
         if (verbose)
           idpb <- cli_progress_bar("Calculating GSVA scores", total=n)
         es <- lapply(as.list(1:n), function(j, R, idpb) {
+            rnkstats <- NULL
             if (any_na)
                 rnkstats <- .ranks2stats_nas(R[, j], sparse)
             else
                 rnkstats <- .ranks2stats(R[, j], sparse)
-            sco <- NA_real_
-            if (any_na && any(is.na(rnkstats$dos))) {
-                md <- lapply(geneSetsIdx, function(gSetIdx, decOrdStat,
-                                                   symRnkStat, na_use) {
-                  walkStat <- .gsvaRndWalk_nas(gSetIdx, decOrdStat, symRnkStat,
-                                               tau, na_use, minSize, wna_env)
-                  maxDev <- c(NA_real_, NA_real_)
-                  if (any(!is.na(walkStat))) {
-                      if (na_use == "na.rm")
-                          maxDev <- c(max(c(0, max(walkStat, na.rm=TRUE))),
-                                      min(c(0, min(walkStat, na.rm=TRUE))))
-                      else
-                          maxDev <- c(max(c(0, max(walkStat))),
-                                      min(c(0, min(walkStat))))
-                  }
-                  maxDev
-                }, rnkstats$dos, rnkstats$srs, na_use)
-                md <- do.call("rbind", md)
-                if (maxDiff && absRanking)
-                    md[, 2] <- -1 * md[, 2]
-                sco <- rowSums(md)
-                if (!maxDiff) {
-                    mask <- is.na(sco)
-                    sco[!mask] <- md[cbind(1:sum(!mask), ifelse(sco[!mask] > 0,
-                                                                1, 2))]
-                }
-                if (verbose)
-                    cli_progress_update(id=idpb)
-            } else {
-                md <- lapply(geneSetsIdx, function(gSetIdx, decOrdStat, symRnkStat) {
-                  walkStat <- .gsvaRndWalk(gSetIdx, decOrdStat, symRnkStat, tau)
-                  maxDev <- c(max(c(0, max(walkStat))), min(c(0, min(walkStat))))
-                  maxDev
-                }, rnkstats$dos, rnkstats$srs)
-                md <- do.call("rbind", md)
-                if (maxDiff && absRanking)
-                    md[, 2] <- -1 * md[, 2]
-                sco <- rowSums(md)
-                if (!maxDiff)
-                    sco <- md[cbind(1:length(sco), ifelse(sco > 0, 1, 2))]
-                if (verbose)
-                    cli_progress_update(id=idpb)
-            }
+            sco <- .gsva_score_genesets(geneSetsIdx, decOrdStat=rnkstats$dos,
+                                        symRnkStat=rnkstats$srs, maxDiff,
+                                        absRanking, tau, any_na, na_use, minSize,
+                                        wna_env)
+            if (verbose)
+                cli_progress_update(id=idpb)
             sco
         }, R=R, idpb=idpb)
         if (verbose)
@@ -1119,6 +1091,11 @@ setMethod("gsvaEnrichment", signature(param="gsvaRanksParam"),
         } else
             leneg <- geneSetIdx[gsetrnk >= whMaxDev[2]]
     }
+    if (all(!is.na(lepos)))
+        lepos <- rownames(R)[lepos]
+    if (all(!is.na(leneg)))
+        leneg <- rownames(R)[leneg]
+
     res <- list(stats=edat,
                 gsetrnk=gsetrnk,
                 maxPos=maxDev[1],
@@ -1250,27 +1227,42 @@ setMethod("gsvaEnrichment", signature(param="gsvaRanksParam"),
   .Call("order_rankstat_R", x)
 }
 
-.gsva_rnd_walk <- function(gsetIdx, geneRanking, rankStat) {
+.gsva_rnd_walk <- function(gsetIdx, decOrdStat, symRnkStat) {
   stopifnot(is.integer(gsetIdx)) ## QC
-  stopifnot(is.integer(geneRanking)) ## QC
-  ## stopifnot(is.integer(rankStat)) ## QC
-  stopifnot(is.numeric(rankStat)) ## QC
-  .Call("gsva_rnd_walk_R", gsetIdx, geneRanking, rankStat)
+  stopifnot(is.integer(decOrdStat)) ## QC
+  stopifnot(is.numeric(symRnkStat)) ## QC
+  .Call("gsva_rnd_walk_R", gsetIdx, decOrdStat, symRnkStat)
 }
 
-.gsva_score_genesets <- function(geneSetsRankIdx, geneRanking, rankStat,
-                                 maxDiff, absRnk, tau) {
-  stopifnot(is.list(geneSetsRankIdx)) ## QC
-  stopifnot(length(geneSetsRankIdx) > 0) ## QC
-  stopifnot(is.integer(geneSetsRankIdx[[1]])) ## QC
-  stopifnot(is.integer(geneRanking)) ## QC
-  ## stopifnot(is.integer(rankStat)) ## QC
-  stopifnot(is.numeric(rankStat)) ## QC
+#' @importFrom cli cli_abort
+.gsva_score_genesets <- function(geneSetsIdx, decOrdStat, symRnkStat,
+                                 maxDiff, absRanking, tau, any_na, na_use,
+                                 minSize, wna_env) {
+  minSize <- as.integer(minSize)
+  stopifnot(is.list(geneSetsIdx)) ## QC
+  stopifnot(length(geneSetsIdx) > 0) ## QC
+  stopifnot(is.integer(geneSetsIdx[[1]])) ## QC
+  stopifnot(is.integer(decOrdStat)) ## QC
+  stopifnot(is.numeric(symRnkStat)) ## QC
   stopifnot(is.logical(maxDiff)) ## QC
-  stopifnot(is.logical(absRnk)) ## QC
+  stopifnot(is.logical(absRanking)) ## QC
   stopifnot(is.numeric(tau)) ## QC
-  .Call("gsva_score_genesets_R", geneSetsRankIdx, geneRanking, rankStat,
-        maxDiff, absRnk, tau)
+  stopifnot(is.logical(any_na)) ## QC
+  stopifnot(is.character(na_use)) ## QC
+  stopifnot(is.integer(minSize)) ## QC
+  na_use <- as.integer(factor(na_use, levels=c("everything", "all.obs",
+                                               "na.rm")))
+  sco <- .Call("gsva_score_genesets_R", geneSetsIdx, decOrdStat, symRnkStat,
+               maxDiff, absRanking, tau, any_na, na_use, minSize)
+  if (any_na) {
+    if (na_use == 2 && !is.null(attr(sco, "class")))
+        cli_abort(c("x"="Input GSVA ranks have NA values."))
+
+    if (na_use == 3 && !is.null(attr(sco, "class")))
+        assign("w", TRUE, envir=wna_env)
+  }
+
+  sco
 }
 
 .order_rankstat_sparse_to_dense <- function(X, j) {
