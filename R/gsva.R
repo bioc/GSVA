@@ -686,6 +686,9 @@ setMethod("gsvaEnrichment", signature(param="gsvaRanksParam"),
               maxDiff <- get_maxDiff(param)
               absRanking <- get_absRanking(param)
               sparse <- get_sparse(param)
+              any_na <- anyNA(param)
+              na_use <- get_NAuse(param)
+              minsize <- get_minSize(param)
 
               exprData <- get_exprData(param)
               filteredDataMatrix <- unwrapData(exprData, get_assay(param))
@@ -699,9 +702,13 @@ setMethod("gsvaEnrichment", signature(param="gsvaRanksParam"),
               edata <- .gsva_enrichment_data(R=filteredDataMatrix,
                                              column=column,
                                              geneSetIdx=geneSetIdx,
-                                             tau=tau, maxDiff=maxDiff,
+                                             maxDiff=maxDiff,
                                              absRanking=absRanking,
-                                             sparse=sparse)
+                                             tau=tau,
+                                             sparse=sparse,
+                                             any_na=any_na,
+                                             na_use=na_use,
+                                             minSize=minsize)
 
               if (plot == "no" || (plot == "auto" && !interactive()))
                   return(edata)
@@ -887,7 +894,7 @@ setMethod("gsvaEnrichment", signature(param="gsvaRanksParam"),
 ## here gSetIdx, decOrderStat and symRnkStat contain the positions with respect
 ## to the original order of genes in the data
 .gsvaRndWalk_nas <- function(gSetIdx, decOrderStat, symRnkStat, tau, na_use,
-                             minSize=1L, wna_env=new.env()) {
+                             minSize=1L, wna_env) {
     n <- length(decOrderStat)
     gSetRnk <- decOrderStat[gSetIdx]
 
@@ -1054,32 +1061,69 @@ setMethod("gsvaEnrichment", signature(param="gsvaRanksParam"),
     return(es)
 }
 
-.gsva_enrichment_data <- function(R, column, geneSetIdx, tau=1, maxDiff=TRUE,
-                                  absRanking=FALSE, sparse=TRUE) {
+.gsva_enrichment_data <- function(R, column, geneSetIdx, maxDiff,
+                                  absRanking, tau, sparse, any_na,
+                                  na_use, minSize) {
     n <- ncol(R)
     es <- NULL
     if (!is(R, "dgCMatrix"))
         sparse <- FALSE
+    wna_env <- new.env()
+    assign("w", FALSE, envir=wna_env)
 
-    rnkstats <- .ranks2stats(R[, column], sparse)
-    walkStat <- .gsvaRndWalk(geneSetIdx, rnkstats$dos, rnkstats$srs, tau)
-    maxDev <- c(max(c(0, max(walkStat))), min(c(0, min(walkStat))))
-    whMaxDev <- c(which.max(walkStat), which.min(walkStat))
-    whMaxDev[maxDev == 0] <- NA
+    if (any_na) {
+        rnkstats <- .ranks2stats_nas(R[, column], sparse)
+        walkStat <- .gsvaRndWalk_nas(geneSetIdx, rnkstats$dos, rnkstats$srs,
+                                     tau, na_use, minSize, wna_env=wna_env)
+        maxDev <- whMaxDev <- c(NA, NA)
+        if (any(!is.na(walkStat))) {
+          if (na_use == "na.rm")
+              maxDev <- c(max(c(0, max(walkStat, na.rm=TRUE))),
+                          min(c(0, min(walkStat, na.rm=TRUE))))
+          else
+              maxDev <- c(max(c(0, max(walkStat))),
+                          min(c(0, min(walkStat))))
+        }
+        if (length(which.max(walkStat)) > 0)
+            whMaxDev[1] <- which.max(walkStat)
+        if (length(which.min(walkStat)) > 0)
+            whMaxDev[2] <- which.min(walkStat)
+    } else {
+        rnkstats <- .ranks2stats(R[, column], sparse)
+        walkStat <- .gsvaRndWalk(geneSetIdx, rnkstats$dos, rnkstats$srs, tau)
+        maxDev <- c(max(c(0, max(walkStat))), min(c(0, min(walkStat))))
+        whMaxDev <- c(which.max(walkStat), which.min(walkStat))
+        whMaxDev[maxDev == 0] <- NA
+    }
     
+    if (any_na && na_use == "na.rm")
+        if (get("w", envir=wna_env)) {
+            msg <- sprintf(paste("Gene set has fewer than %d genes after",
+                                 "removing missing values, no enrichment data",
+                                 "available"),
+                           minSize)
+            cli_alert_warning(msg)
+            return(list())
+        }
+
     if (maxDiff && absRanking)
         maxDev[2] <- -1 * maxDev[2]
     sco <- sum(maxDev)
     if (!maxDiff) {
-        sco <- maxDev[1]
-        if (abs(maxDev[2]) > maxDev[1])
-            sco <- maxDev[2]
+        if (any_na) {
+            if (!is.na(sco)) {
+                sco <- maxDev[1]
+                if (abs(maxDev[2]) > maxDev[1])
+                    sco <- maxDev[2]
+            }
+        }
     }
 
     edat <- data.frame(rank=seq.int(nrow(R)),
                        stat=walkStat)
-    rownames(edat)[rnkstats$dos] <- rownames(R)
+    rownames(edat)[na.omit(rnkstats$dos)] <- rownames(R)[!is.na(rnkstats$dos)]
 
+    geneSetIdx <- geneSetIdx[!is.na(rnkstats$dos[geneSetIdx])]
     gsetrnk <- rnkstats$dos[geneSetIdx]
     lepos <- leneg <- NA
     if (!is.na(whMaxDev[1]))
