@@ -125,7 +125,7 @@
                                              maxSize=maxSize)
     
     if (length(filteredMappedGeneSets) == 0) {
-        msg <- "The gene set list is empty! Filter may be too stringent."
+        msg <- "No gene set left after mapping and filtering."
         cli_abort(c("x"=msg))
     }
 
